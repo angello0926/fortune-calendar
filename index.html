@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>五行日主事業運勢萬年曆 (本地時區)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lunar-javascript/lunar.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700;900&display=swap');
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background: #f8fafc;
+            transition: background-color 0.5s ease;
+        }
+        
+        :root {
+            --theme-color: #d97706; 
+            --theme-bg: #fffbeb;
+            --theme-border: #fbbf24;
+            --theme-text: #92400e;
+        }
+
+        .lucky-day {
+            background-color: var(--theme-bg);
+            border: 2px solid var(--theme-color);
+            position: relative;
+            box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.03);
+        }
+        .lucky-day::after {
+            content: '✨';
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            font-size: 0.75rem;
+        }
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+        }
+        
+        .theme-transition {
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        /* Tab 樣式優化 */
+        .master-tab-container {
+            @apply flex flex-wrap justify-center gap-2 p-2 bg-white rounded-3xl shadow-inner border border-slate-200/60;
+            background: linear-gradient(145deg, #ffffff, #f1f5f9);
+        }
+
+        .master-btn {
+            @apply flex items-center gap-2 px-4 py-2 rounded-2xl text-sm font-bold transition-all border border-transparent;
+        }
+
+        .dot {
+            @apply w-2.5 h-2.5 rounded-full;
+        }
+    </style>
+</head>
+<body class="min-h-screen p-4 md:p-8">
+    <div class="max-w-4xl mx-auto">
+        <!-- Header -->
+        <header class="text-center mb-8">
+            <h1 class="text-3xl font-black text-slate-800 mb-2 tracking-tight">五行日主事業萬年曆</h1>
+            <p id="timezone-display" class="text-slate-400 text-sm mb-8 font-medium">偵測時區中...</p>
+            
+            <!-- 日主選擇器 -->
+            <div class="max-w-xl mx-auto mb-8">
+                <div class="master-tab-container">
+                    <button onclick="setMaster('金')" id="btn-金" class="master-btn group">
+                        <span class="dot bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.5)]"></span>
+                        金日主
+                    </button>
+                    <button onclick="setMaster('木')" id="btn-木" class="master-btn group">
+                        <span class="dot bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></span>
+                        木日主
+                    </button>
+                    <button onclick="setMaster('水')" id="btn-水" class="master-btn group">
+                        <span class="dot bg-slate-800 shadow-[0_0_8px_rgba(30,41,59,0.5)]"></span>
+                        水日主
+                    </button>
+                    <button onclick="setMaster('火')" id="btn-火" class="master-btn group">
+                        <span class="dot bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]"></span>
+                        火日主
+                    </button>
+                    <button onclick="setMaster('土')" id="btn-土" class="master-btn group">
+                        <span class="dot bg-yellow-700 shadow-[0_0_8px_rgba(161,98,7,0.5)]"></span>
+                        土日主
+                    </button>
+                </div>
+            </div>
+
+            <div id="target-display" class="flex flex-wrap justify-center gap-2">
+                <!-- 動態標籤 -->
+            </div>
+        </header>
+
+        <!-- Stats Card -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
+            <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">今日干支 (LOCAL)</p>
+                <p id="today-gz" class="text-2xl font-black text-slate-800">...</p>
+            </div>
+            <div id="next-lucky-card" class="theme-transition p-6 rounded-3xl shadow-xl border text-white transform hover:scale-[1.02]">
+                <p class="text-[10px] font-black opacity-80 uppercase tracking-widest mb-1">下個事業吉日</p>
+                <p id="next-lucky-date" class="text-2xl font-black">計算中...</p>
+            </div>
+            <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">本月吉日總數</p>
+                <p id="month-count" class="text-2xl font-black text-slate-800">0</p>
+            </div>
+        </div>
+
+        <!-- Main Calendar Section -->
+        <div class="bg-white rounded-[2.5rem] shadow-2xl overflow-hidden border border-slate-200">
+            <div class="flex items-center justify-between p-7 bg-slate-50/50 border-b border-slate-100">
+                <button id="prev-month" class="p-3 hover:bg-white hover:shadow-md rounded-2xl transition-all text-slate-400 hover:text-slate-800 border border-transparent hover:border-slate-100">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M15 19l-7-7 7-7" />
+                    </svg>
+                </button>
+                <h2 id="current-month-display" class="text-xl font-black text-slate-800 tracking-tight">...</h2>
+                <button id="next-month" class="p-3 hover:bg-white hover:shadow-md rounded-2xl transition-all text-slate-400 hover:text-slate-800 border border-transparent hover:border-slate-100">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M9 5l7 7-7 7" />
+                    </svg>
+                </button>
+            </div>
+
+            <div class="p-6">
+                <div class="calendar-grid mb-4">
+                    <div class="text-center text-[10px] font-black text-slate-300 py-2">SUN</div>
+                    <div class="text-center text-[10px] font-black text-slate-300 py-2">MON</div>
+                    <div class="text-center text-[10px] font-black text-slate-300 py-2">TUE</div>
+                    <div class="text-center text-[10px] font-black text-slate-300 py-2">WED</div>
+                    <div class="text-center text-[10px] font-black text-slate-300 py-2">THU</div>
+                    <div class="text-center text-[10px] font-black text-slate-300 py-2">FRI</div>
+                    <div class="text-center text-[10px] font-black text-slate-300 py-2">SAT</div>
+                </div>
+                <div id="calendar-days" class="calendar-grid gap-2"></div>
+            </div>
+        </div>
+
+        <!-- Footer Info -->
+        <div class="mt-8 p-8 bg-white rounded-3xl border border-slate-200 shadow-sm relative overflow-hidden">
+            <div id="info-accent" class="absolute top-0 left-0 w-1.5 h-full theme-transition" style="background-color: var(--theme-color)"></div>
+            <h3 class="font-black text-slate-800 mb-3 flex items-center text-lg">
+                關於您的日主運勢
+            </h3>
+            <p id="master-info" class="text-slate-500 leading-relaxed font-medium">請選擇您的日主以查看專屬好運建議。</p>
+        </div>
+    </div>
+
+    <script>
+        const MASTER_CONFIG = {
+            '金': {
+                days: ["丙寅", "丁巳", "丙午", "丁未", "丙戌"],
+                info: "金日主：火為官殺。此時火能煉金，象徵事業的鍛煉、職位提升與權威確立。",
+                theme: { primary: '#d97706', bg: '#fffbeb', border: '#fbbf24', text: '#92400e', btn: 'bg-amber-500' }
+            },
+            '木': {
+                days: ["庚申", "庚戌", "辛丑", "辛巳", "辛酉"],
+                info: "木日主：金為官殺。金能修剪繁茂之木，使其成材，利於建立威信、規章制定與決策。",
+                theme: { primary: '#059669', bg: '#ecfdf5', border: '#34d399', text: '#064e3b', btn: 'bg-emerald-600' }
+            },
+            '水': {
+                days: ["戊寅", "戊午", "戊辰", "戊申", "戊戌", "己巳", "己丑", "己未"],
+                info: "水日主：土為官殺。土能築堤導流，使水不氾濫成災，利於職場穩定、責任承擔與基礎建設。",
+                theme: { primary: '#1e293b', bg: '#f1f5f9', border: '#94a3b8', text: '#0f172a', btn: 'bg-slate-800' }
+            },
+            '火': {
+                days: ["壬子", "癸丑", "壬辰", "壬申", "癸亥"],
+                info: "火日主：水為官殺。水能既濟烈火，使其不至於焦燥，利於社交應對、應變能力與創意實踐。",
+                theme: { primary: '#dc2626', bg: '#fef2f2', border: '#f87171', text: '#991b1b', btn: 'bg-red-600' }
+            },
+            '土': {
+                days: ["甲寅", "乙卯", "甲辰", "乙未", "乙亥"],
+                info: "土日主：木為官殺。木根能疏鬆土壤，使土地充滿生機，象徵事業突破、新領域開發與成長。",
+                theme: { primary: '#854d0e', bg: '#fffaf0', border: '#b45309', text: '#78350f', btn: 'bg-yellow-700' }
+            }
+        };
+
+        // 自動獲取用戶當前時區
+        const USER_TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        let currentMaster = '金'; 
+        let viewDate = new Date(); // 使用本地時間
+        const realToday = new Date(); // 使用本地時間
+
+        function getLunar(date) {
+            try { return Solar.fromDate(date).getLunar(); } catch(e) { return null; }
+        }
+
+        function setMaster(m) {
+            currentMaster = m;
+            const cfg = MASTER_CONFIG[m];
+            
+            document.documentElement.style.setProperty('--theme-color', cfg.theme.primary);
+            document.documentElement.style.setProperty('--theme-bg', cfg.theme.bg);
+            document.documentElement.style.setProperty('--theme-border', cfg.theme.border);
+            document.documentElement.style.setProperty('--theme-text', cfg.theme.text);
+
+            ['金','木','水','火','土'].forEach(key => {
+                const btn = document.getElementById(`btn-${key}`);
+                const isAct = (key === m);
+                if (isAct) {
+                    btn.className = `master-btn theme-transition ${cfg.theme.btn} text-white shadow-lg shadow-${cfg.theme.btn.split('-')[1]}-200 scale-105`;
+                } else {
+                    btn.className = `master-btn theme-transition bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-800`;
+                }
+            });
+
+            const nextCard = document.getElementById('next-lucky-card');
+            nextCard.className = `theme-transition p-6 rounded-3xl shadow-xl border text-white transform hover:scale-[1.02] ${cfg.theme.btn}`;
+
+            const targetDisplay = document.getElementById('target-display');
+            targetDisplay.innerHTML = cfg.days.map(d => 
+                `<span class="px-4 py-1.5 rounded-2xl text-[11px] font-black border theme-transition shadow-sm" style="background-color: white; color: ${cfg.theme.text}; border-color: ${cfg.theme.border}">${d}</span>`
+            ).join('');
+
+            document.getElementById('master-info').innerText = cfg.info;
+
+            renderTodayHeader();
+            renderCalendar();
+        }
+
+        function init() {
+            if (typeof Solar === 'undefined') {
+                setTimeout(init, 100);
+                return;
+            }
+            
+            // 顯示當前時區名稱
+            document.getElementById('timezone-display').innerText = `本地時區：${USER_TIMEZONE}`;
+            
+            setMaster('金');
+
+            document.getElementById('prev-month').onclick = () => {
+                viewDate.setMonth(viewDate.getMonth() - 1);
+                renderCalendar();
+            };
+            document.getElementById('next-month').onclick = () => {
+                viewDate.setMonth(viewDate.getMonth() + 1);
+                renderCalendar();
+            };
+        }
+
+        function renderTodayHeader() {
+            const l = getLunar(realToday);
+            if (!l) return;
+            document.getElementById('today-gz').innerText = l.getDayInGanZhi();
+            
+            let d = new Date(realToday);
+            const targets = MASTER_CONFIG[currentMaster].days;
+            for(let i = 0; i < 100; i++) {
+                const s = Solar.fromDate(d);
+                const ln = s.getLunar();
+                if(targets.includes(ln.getDayInGanZhi())) {
+                    document.getElementById('next-lucky-date').innerText = 
+                        `${s.getMonth()}/${s.getDay()} (${ln.getDayInGanZhi()})`;
+                    return;
+                }
+                d.setDate(d.getDate() + 1);
+            }
+        }
+
+        function renderCalendar() {
+            const cfg = MASTER_CONFIG[currentMaster];
+            const targets = cfg.days;
+            const year = viewDate.getFullYear();
+            const month = viewDate.getMonth();
+            document.getElementById('current-month-display').innerText = `${year}年 ${month + 1}月`;
+            
+            const first = new Date(year, month, 1).getDay();
+            const last = new Date(year, month + 1, 0).getDate();
+            const container = document.getElementById('calendar-days');
+            container.innerHTML = '';
+            
+            let count = 0;
+            for (let i = 0; i < first; i++) container.innerHTML += '<div class="h-20 md:h-24 bg-slate-50/40 rounded-2xl"></div>';
+
+            for (let day = 1; day <= last; day++) {
+                const cur = new Date(year, month, day);
+                const s = Solar.fromDate(cur);
+                const l = s.getLunar();
+                const gz = l.getDayInGanZhi();
+                const isLucky = targets.includes(gz);
+                const isToday = cur.toDateString() === realToday.toDateString();
+                if(isLucky) count++;
+
+                const dayDiv = document.createElement('div');
+                dayDiv.className = `h-20 md:h-24 p-2 flex flex-col items-center justify-center rounded-2xl border theme-transition ${
+                    isLucky ? 'lucky-day' : 'bg-white border-slate-100 hover:border-slate-200 hover:shadow-sm'
+                } ${isToday ? 'ring-2 ring-slate-400 shadow-md scale-105 z-10' : ''}`;
+                
+                dayDiv.innerHTML = `
+                    <span class="text-[10px] font-black ${isToday ? 'text-slate-800' : 'text-slate-300'}">${day}</span>
+                    <span class="text-sm font-black mt-0.5" style="color: ${isLucky ? 'var(--theme-text)' : '#334155'}">${gz}</span>
+                    <span class="text-[9px] font-bold text-slate-400/80 mt-0.5">${l.getDayInChinese()}</span>
+                `;
+                container.appendChild(dayDiv);
+            }
+            document.getElementById('month-count').innerText = count;
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
